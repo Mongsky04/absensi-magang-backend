@@ -1,4 +1,6 @@
-import serverless from "serverless-http";
 import app from "../src/app.js";
 
-export default serverless(app);
+// Vercel @vercel/node prefers a default export function (req, res)
+export default function handler(req, res) {
+	return app(req, res);
+}

@@ -15,10 +15,25 @@ dotenv.config();
 connectDB();
 
 const app = express();
+const isProd = process.env.NODE_ENV === "production" || process.env.VERCEL === "1";
+
+// Trust proxy for secure cookies on Vercel/Proxies
+app.set("trust proxy", 1);
 
 // CORS
 const corsOrigins = (process.env.CORS_ORIGIN || "").split(",").filter(Boolean);
-app.use(cors({ origin: corsOrigins, credentials: true }));
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow server-to-server or curl (no origin)
+    if (!origin) return callback(null, true);
+    // If no whitelist provided, allow all (useful for initial prod deploys)
+    if (corsOrigins.length === 0) return callback(null, true);
+    if (corsOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error("Not allowed by CORS"), false);
+  },
+  credentials: true,
+};
+app.use(cors(corsOptions));
 app.use(cookieParser());
 app.use(express.json({ limit: "10mb" }));
 
@@ -35,8 +50,8 @@ const sessionCommon = {
   store: sessionStore,
   cookie: {
     httpOnly: true,
-    sameSite: "lax",
-    secure: false, // set true behind HTTPS/Proxy
+    sameSite: isProd ? "none" : "lax",
+    secure: isProd, // secure cookies on HTTPS in production
     maxAge: 1000 * 60 * 60 * 8,
   },
 };
