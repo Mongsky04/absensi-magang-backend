@@ -14,8 +14,7 @@ src/
   models/           # Mongoose schemas
   routes/           # Express routers
 api/
-  index.js          # Vercel serverless entry (delegasi ke app)
-vercel.json         # Rewrites semua path ke /api/index.js
+  [[...slug]].js    # Vercel serverless catch-all (semua path → Express app)
 ```
 
 ## Environment Variables
@@ -57,18 +56,20 @@ npm run dev
 - `http://localhost:4000/` → landing page backend
 - `http://localhost:4000/api/health` → health JSON
 
-## Deploy Vercel
+## Deploy ke Vercel (serverless)
 
-- Hubungkan repo backend ke Vercel.
-- Root Directory: root repo backend (yang memiliki folder `api/`).
-- Build Command: kosongkan (serverless Node tidak butuh build).
-- Pastikan Environment Variables diisi (bagian di atas).
-- Deploy ulang.
+1. Buat project baru di Vercel dan pilih repo ini.
+2. Set “Root Directory” ke folder `backend` (bukan `src`, bukan `api`).
+3. Biarkan Build Command default (tidak ada build khusus). Output directory kosong.
+4. Isi Environment Variables (Production & Preview): lihat bagian di atas.
+5. Deploy.
 
-Verifikasi:
+Verifikasi setelah deploy:
 
-- `https://<your-backend>.vercel.app/api/health` → `{ status: "ok", db: "connected" }`
-- `https://<your-backend>.vercel.app/` → tampil landing page.
+- `https://<your-backend>.vercel.app/` → landing page backend.
+- `https://<your-backend>.vercel.app/api/health` → `{ status: "ok", db: "connected" }`.
+
+Catatan: Jangan gunakan `vercel.json` di setup ini; gunakan file-based routing `api/[[...slug]].js` sebagai catch-all sehingga semua path ditangani Express.
 
 ## Endpoint Utama
 
