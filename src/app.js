@@ -5,7 +5,7 @@ import cookieParser from "cookie-parser";
 import session from "express-session";
 import MongoStore from "connect-mongo";
 import mongoose from "mongoose";
-import { connectDB } from "./config/db.js";
+import { connectDB, getDBState } from "./config/db.js";
 import attendanceRoutes from "./routes/attendanceRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
@@ -152,10 +152,14 @@ app.get("/", (req, res) => {
   res.set("Content-Type", "text/html; charset=utf-8").status(200).send(html);
 });
 
-// JSON Health endpoint
-app.get("/api/health", (req, res) => {
-  const dbReady = mongoose.connection?.readyState === 1;
-  res.json({ status: "ok", db: dbReady ? "connected" : "disconnected", time: new Date().toISOString() });
+// JSON Health endpoint (attempts reconnect if disconnected)
+app.get("/api/health", async (req, res) => {
+  let before = getDBState();
+  if (before !== 1) {
+    await connectDB();
+  }
+  const after = getDBState();
+  res.json({ status: "ok", db: after === 1 ? "connected" : "disconnected", time: new Date().toISOString() });
 });
 
 // Routes
