@@ -5,7 +5,7 @@ import cookieParser from "cookie-parser";
 import session from "express-session";
 import MongoStore from "connect-mongo";
 import mongoose from "mongoose";
-import { connectDB, getDBState } from "./config/db.js";
+import { connectDB, getDBState, getDBStatus, isMongoUriConfigured, getLastDBError } from "./config/db.js";
 import attendanceRoutes from "./routes/attendanceRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
@@ -83,9 +83,14 @@ app.use("/api", (req, res, next) => {
 });
 
 // Pretty Landing Page at root
-app.get("/", (req, res) => {
+app.get("/", async (req, res) => {
   const isProd = process.env.NODE_ENV === "production" || process.env.VERCEL === "1";
-  const dbReady = mongoose.connection?.readyState === 1;
+  // Try to ensure connection before reporting status
+  if (getDBState() !== 1) {
+    await connectDB();
+  }
+  const { state, label } = getDBStatus();
+  const dbReady = state === 1;
   const now = new Date();
   const baseUrl = `${req.protocol}://${req.get("host")}`;
   const html = `<!doctype html>
@@ -121,10 +126,12 @@ app.get("/", (req, res) => {
               <h3>Status</h3>
               <ul>
                 <li>Lingkungan: <strong>${isProd ? "Production" : "Development"}</strong></li>
-                <li>Database: <strong class="${dbReady ? "ok" : "err"}">${dbReady ? "Connected" : "Disconnected"}</strong></li>
+                <li>Database: <strong class="${dbReady ? "ok" : (state === 2 ? "warn" : "err")}">${label}</strong></li>
                 <li>Waktu server: <code>${now.toLocaleString("id-ID")}</code></li>
               </ul>
               <p class="pill">Cookie SameSite: ${isProd ? "None; Secure" : "Lax"}</p>
+              <p class="pill">MONGO_URI: ${isMongoUriConfigured() ? "configured" : "missing"}</p>
+              ${dbReady ? "" : `<p style="margin-top:8px;color:var(--muted);font-size:12px">${isMongoUriConfigured() ? "Gagal konek ke MongoDB. Cek Network Access (Atlas IP allowlist) & kredensial." : "Set variabel lingkungan MONGO_URI di server."}</p>`}
             </div>
             <div class="card">
               <h3>Endpoints (User)</h3>
@@ -163,12 +170,20 @@ app.get("/", (req, res) => {
 
 // JSON Health endpoint (attempts reconnect if disconnected)
 app.get("/api/health", async (req, res) => {
-  let before = getDBState();
+  const before = getDBState();
   if (before !== 1) {
     await connectDB();
   }
-  const after = getDBState();
-  res.json({ status: "ok", db: after === 1 ? "connected" : "disconnected", time: new Date().toISOString() });
+  const { state, label } = getDBStatus();
+  const isProdEnv = process.env.NODE_ENV === "production" || process.env.VERCEL === "1";
+  res.json({
+    status: "ok",
+    db: label.toLowerCase(),
+    state,
+    mongoUriConfigured: isMongoUriConfigured(),
+    error: state === 1 ? null : (isProdEnv ? undefined : getLastDBError() || null),
+    time: new Date().toISOString(),
+  });
 });
 
 // Routes
