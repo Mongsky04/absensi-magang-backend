@@ -37,7 +37,13 @@ const corsOptions = {
   credentials: true,
 };
 app.use(cors(corsOptions));
-app.options("*", cors(corsOptions));
+// Handle preflight generically without path-to-regexp patterns (Express v5 safe)
+app.use((req, res, next) => {
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+  next();
+});
 app.use(cookieParser());
 app.use(express.json({ limit: "10mb" }));
 
