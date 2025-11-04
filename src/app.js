@@ -40,6 +40,14 @@ app.use(cors(corsOptions));
 // Handle preflight generically without path-to-regexp patterns (Express v5 safe)
 app.use((req, res, next) => {
   if (req.method === "OPTIONS") {
+    // Fallback: ensure minimal CORS headers if not already set
+    const origin = req.headers.origin || "*";
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
+    const reqHeaders = req.headers["access-control-request-headers"]; 
+    res.setHeader("Access-Control-Allow-Headers", reqHeaders || "Content-Type, Authorization");
     return res.sendStatus(204);
   }
   next();
