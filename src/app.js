@@ -21,20 +21,23 @@ const isProd = process.env.NODE_ENV === "production" || process.env.VERCEL === "
 // Trust proxy for secure cookies on Vercel/Proxies
 app.set("trust proxy", 1);
 
-// CORS
-const corsOrigins = (process.env.CORS_ORIGIN || "").split(",").filter(Boolean);
+// CORS (normalize whitelist; optional Vercel preview toggle)
+const rawOrigins = (process.env.CORS_ORIGIN || "").split(",").filter(Boolean);
+const corsOrigins = rawOrigins.map(o => o.trim().replace(/\/$/, "").toLowerCase());
+const allowPreviews = (process.env.CORS_ALLOW_VERCEL_PREVIEWS || "0") === "1";
 const corsOptions = {
   origin: (origin, callback) => {
-    // Allow server-to-server or curl (no origin)
-    if (!origin) return callback(null, true);
-    // If no whitelist provided, allow all (useful for initial prod deploys)
+    if (!origin) return callback(null, true); // server-to-server / curl
+    const normalized = origin.trim().replace(/\/$/, "").toLowerCase();
     if (corsOrigins.length === 0) return callback(null, true);
-    if (corsOrigins.includes(origin)) return callback(null, true);
+    if (corsOrigins.includes(normalized)) return callback(null, true);
+    if (allowPreviews && /https?:\/\/.*\.vercel\.app$/i.test(normalized)) return callback(null, true);
     return callback(new Error("Not allowed by CORS"), false);
   },
   credentials: true,
 };
 app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 app.use(cookieParser());
 app.use(express.json({ limit: "10mb" }));
 
